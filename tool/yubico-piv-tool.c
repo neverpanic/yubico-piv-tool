@@ -68,6 +68,8 @@
 
 #define YKPIV_ATTESTATION_OID "1.3.6.1.4.1.41482.3"
 
+static bool verify_pin(ykpiv_state *state);
+
 static enum file_mode key_file_mode(enum enum_key_format fmt, bool output) {
   if (fmt == key_format_arg_PEM) {
     if (output) {
@@ -124,6 +126,9 @@ static bool sign_data(ykpiv_state *state, const unsigned char *in, size_t len, u
     }
     in = signinput;
     len = padlen;
+  }
+  if(!verify_pin(state)) {
+    return false;
   }
   if(ykpiv_sign_data(state, in, len, out, out_len, algorithm, key) == YKPIV_OK) {
     return true;
@@ -1185,31 +1190,6 @@ selfsign_out:
   return ret;
 }
 
-static bool verify_pin(ykpiv_state *state, const char *pin) {
-  int tries = -1;
-  ykpiv_rc res;
-  int len;
-  len = strlen(pin);
-
-  if(len > 8) {
-    fprintf(stderr, "Maximum 8 digits of PIN supported.\n");
-  }
-
-  res = ykpiv_verify(state, pin, &tries);
-  if(res == YKPIV_OK) {
-    return true;
-  } else if(res == YKPIV_WRONG_PIN || res == YKPIV_PIN_LOCKED) {
-    if(tries > 0) {
-      fprintf(stderr, "Pin verification failed, %d tries left before pin is blocked.\n", tries);
-    } else {
-      fprintf(stderr, "Pin code blocked, use unblock-pin action to unblock.\n");
-    }
-  } else {
-    fprintf(stderr, "Pin code verification failed: '%s'\n", ykpiv_strerror(res));
-  }
-  return false;
-}
-
 /* this function is called for all three of change-pin, change-puk and unblock pin
  * since they're very similar in what data they use. */
 static bool change_pin(ykpiv_state *state, enum enum_action action, const char *pin,
@@ -2059,8 +2039,42 @@ read_out:
   return ret;
 }
 
+static struct gengetopt_args_info args_info;
+
+static bool verify_pin(ykpiv_state *state)
+{
+  if (!args_info.pin_arg) {
+    args_info.pin_arg = calloc(1, 8 + 2);
+    if (!read_pw("PIN", args_info.pin_arg, 8 + 2, false, args_info.stdin_input_flag)) {
+      return false;
+    }
+  }
+
+  if (strlen(args_info.pin_arg) > 8) {
+    fprintf(stderr, "Maximum 8 digits of PIN supported.\n");
+  }
+
+  int tries = -1;
+  ykpiv_rc res = ykpiv_verify(state, args_info.pin_arg, &tries);
+  if (res == YKPIV_OK) {
+    fprintf(stderr, "Successfully verified PIN.\n");
+    return true;
+  }
+  else if (res == YKPIV_WRONG_PIN || res == YKPIV_PIN_LOCKED) {
+    if (tries > 0) {
+      fprintf(stderr, "Pin verification failed, %d tries left before pin is blocked.\n", tries);
+    }
+    else {
+      fprintf(stderr, "Pin code blocked, use unblock-pin action to unblock.\n");
+    }
+  }
+  else {
+    fprintf(stderr, "Pin code verification failed: '%s'\n", ykpiv_strerror(res));
+  }
+  return false;
+}
+
 int main(int argc, char *argv[]) {
-  struct gengetopt_args_info args_info;
   ykpiv_state *state;
   int verbosity;
   enum enum_action action;
@@ -2347,21 +2361,7 @@ int main(int argc, char *argv[]) {
         }
         break;
       case action_arg_verifyMINUS_pin: {
-        char pinbuf[8+2] = {0};
-        char *pin = args_info.pin_arg;
-
-        if(!pin) {
-          if (!read_pw("PIN", pinbuf, sizeof(pinbuf), false, args_info.stdin_input_flag)) {
-            fprintf(stderr, "Failed to get PIN.\n");
-            ykpiv_done(state);
-            cmdline_parser_free(&args_info);
-            return EXIT_FAILURE;
-          }
-          pin = pinbuf;
-        }
-        if(verify_pin(state, pin)) {
-          fprintf(stderr, "Successfully verified PIN.\n");
-        } else {
+        if(!verify_pin(state)) {
           ret = EXIT_FAILURE;
         }
         break;
