@@ -2046,6 +2046,8 @@ static bool verify_pin(ykpiv_state *state)
   if (!args_info.pin_arg) {
     args_info.pin_arg = calloc(1, 8 + 2);
     if (!read_pw("PIN", args_info.pin_arg, 8 + 2, false, args_info.stdin_input_flag)) {
+      free(args_info.pin_arg);
+      args_info.pin_arg = NULL;
       return false;
     }
   }
