@@ -130,10 +130,13 @@ static bool sign_data(ykpiv_state *state, const unsigned char *in, size_t len, u
   if(!verify_pin(state)) {
     return false;
   }
-  if(ykpiv_sign_data(state, in, len, out, out_len, algorithm, key) == YKPIV_OK) {
-    return true;
+  ykpiv_rc res = ykpiv_sign_data(state, in, len, out, out_len, algorithm, key);
+  if(res != YKPIV_OK)
+  {
+    fprintf(stderr, "Signing data failed: '%s'\n", ykpiv_strerror(res));
+    return false;
   }
-  return false;
+  return true;
 }
 
 #if !((OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER))
@@ -874,7 +877,6 @@ static bool request_certificate(ykpiv_state *state, enum enum_key_format key_for
     unsigned char signature[1024] = {0};
     size_t sig_len = sizeof(signature);
     if(!sign_data(state, signinput, len, signature, &sig_len, algorithm, key)) {
-      fprintf(stderr, "Failed signing request.\n");
       goto request_out;
     }
     ASN1_STRING_set(req->signature, signature, sig_len);
@@ -1128,7 +1130,6 @@ static bool selfsign_certificate(ykpiv_state *state, enum enum_key_format key_fo
     unsigned char signature[1024] = {0};
     size_t sig_len = sizeof(signature);
     if(!sign_data(state, signinput, len, signature, &sig_len, algorithm, key)) {
-      fprintf(stderr, "Failed signing certificate.\n");
       goto selfsign_out;
     }
     ASN1_STRING_set(x509->signature, signature, sig_len);
@@ -1395,7 +1396,6 @@ static bool sign_file(ykpiv_state *state, const char *input, const char *output,
     unsigned char buf[1024] = {0};
     size_t len = sizeof(buf);
     if(!sign_data(state, hashed, hash_len, buf, &len, algo, key)) {
-      fprintf(stderr, "failed signing file\n");
       goto out;
     }
 
@@ -1699,7 +1699,6 @@ static bool test_signature(ykpiv_state *state, enum enum_slot slot,
       enc_len = data_len;
     }
     if(!sign_data(state, ptr, enc_len, signature, &sig_len, algorithm, key)) {
-      fprintf(stderr, "Failed signing test data.\n");
       goto test_out;
     }
 
