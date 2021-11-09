@@ -667,10 +667,13 @@ ykpiv_rc _ykpiv_begin_transaction(ykpiv_state *state) {
       fprintf(stderr, "SCardBeginTransaction on card #%u failed, rc=%lx\n", state->serial, (long)rc);
     }
     if (SCardIsValidContext(state->context) != SCARD_S_SUCCESS || rc == SCARD_E_NO_SERVICE || rc == SCARD_E_READER_UNAVAILABLE) {
-      SCardDisconnect(state->card, SCARD_RESET_CARD);
+      LONG rc2 = SCardDisconnect(state->card, SCARD_RESET_CARD);
+      if(state->verbose) {
+        fprintf(stderr, "SCardDisconnect on card #%u rc=%lx\n", state->serial, (long)rc2);
+      }
       state->card = 0;
     }
-    if(SCardIsValidContext(state->context) != SCARD_S_SUCCESS  || rc == SCARD_E_NO_SERVICE) {
+    if (SCardIsValidContext(state->context) != SCARD_S_SUCCESS || rc == SCARD_E_NO_SERVICE) {
       rc = SCardReleaseContext(state->context);
       if(state->verbose) {
         fprintf(stderr, "SCardReleaseContext on card #%u rc=%lx\n", state->serial, (long)rc);
