@@ -714,9 +714,20 @@ ykpiv_rc _ykpiv_begin_transaction(ykpiv_state *state) {
   }
 
   if(retries) {
+    uint32_t serial = state->serial;
+    state->serial = 0;
+    state->ver.major = 0;
+    state->ver.minor = 0;
+    state->ver.patch = 0;
     ykpiv_rc res;
     if ((res = _ykpiv_select_application(state)) != YKPIV_OK)
       return res;
+    if(state->serial != serial) {
+      if(state->verbose) {
+        fprintf(stderr, "Card #%u detected, was expecting card #%u\n", state->serial, serial);
+      }
+      return YKPIV_GENERIC_ERROR;
+    }
     if(state->mgm_key) {
       if((res = _ykpiv_authenticate(state, state->mgm_key)) != YKPIV_OK)
         return res;
