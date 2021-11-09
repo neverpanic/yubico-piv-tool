@@ -154,7 +154,7 @@ typedef struct _ykpiv_version_t {
 struct ykpiv_state {
   SCARDCONTEXT context;
   SCARDHANDLE card;
-  char reader[1024];
+  char reader[2048];
   int  verbose;
   int tries;
   char *pin;
