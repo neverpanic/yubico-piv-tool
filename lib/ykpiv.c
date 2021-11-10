@@ -532,7 +532,8 @@ ykpiv_rc ykpiv_connect(ykpiv_state *state, const char *wanted) {
       state->context = (SCARDCONTEXT)-1;
       return YKPIV_PCSC_ERROR;
     }
-    strcpy(state->reader, wanted);
+    strncpy(state->reader, wanted, sizeof(state->reader));
+    state->reader[sizeof(state->reader) - 1] = 0;
   } else
   {
     ret = ykpiv_list_readers(state, reader_buf, &num_readers);
@@ -568,7 +569,8 @@ ykpiv_rc ykpiv_connect(ykpiv_state *state, const char *wanted) {
             SCARD_PROTOCOL_T1, &card, &active_protocol);
       if(rc == SCARD_S_SUCCESS)
       {
-        strcpy(state->reader, reader_ptr);
+        strncpy(state->reader, reader_ptr, sizeof(state->reader));
+        state->reader[sizeof(state->reader) - 1] = 0;
         break;
       }
       if(state->verbose) {
